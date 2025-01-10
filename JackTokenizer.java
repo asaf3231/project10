@@ -30,25 +30,28 @@ public class JackTokenizer {
             buildMap();
         }
 
-        public static void cleanFile() throws IOException{
+        public static void cleanFile() throws IOException {
+            String[] dividers = {
+                "\\{", "\\}", "\\(", "\\)", "\\[", "\\]", "\\.", ",", ";", "\\+", "-", "\\*", "/", "&", "\\|",
+                "<", ">", "=", "~"
+            };
+        
+            // Create a regex pattern to include dividers as separate tokens
+            String regex = "(?<=(" + String.join("|", dividers) + "))|(?=(" + String.join("|", dividers) + "))";
+        
             while (hasMorelines()) {
-                String[] w = currLine.split(" ");
-                // Add each token to the words list
-                String res = "";
-                for (int i = 0 ; i < w.length ; i ++) { 
-                    if (w[i].charAt(0) == '\"') {
-                        while(w[i].charAt(w[i].length()-1) != '\"'){
-                            res = res + w[i];
-                            i++;
-                        }
-                        res = res + w[i];
-                        i++;
-                        words.add(w[i]);
-                    } 
-                    else{
-                        words.add(w[i]);
+                // Split the current line by the regex
+                String[] tokens = currLine.split(regex);
+        
+                for (String token : tokens) {
+                    token = token.trim(); // Trim whitespace around tokens
+                
+                    if (!token.isEmpty()) { // Skip empty tokens
+                        words.add(token); // Add every token directly to the list
                     }
                 }
+        
+                advanceline(); // Move to the next line
             }
         }
 
@@ -78,20 +81,59 @@ public class JackTokenizer {
         }
 
         public static void makeTokens(){
+            boolean psicuda = false;
+
             for(String word : words){
                 if (map.containsKey(word)){
                     tokens.add(word);
                      continue;
                 }
+
                 else{
+                    if (word.contains(";")){
+                        word = word.substring(0,  word.indexOf(';')-1);
+                        psicuda = true;
+                    }   
+
                     if(word.charAt(0 ) == '\"'){
                         tokens.add(word.substring(1, word.length() -1 ));
                         continue;
                     }
-                    
+
+                    if(word.charAt(0 ) == '('){
+                        tokens.add(word.substring(0, 1));
+                        tokens.add(word.substring(1));
+                        continue;
+                    }
+
+                    if(word.charAt(word.length() -1 ) == ')'){
+                        tokens.add(word.substring(0, word.length() -1 ));
+                        tokens.add(word.substring(word.length() -1));
+                        continue;
+                    }
+
+                    if(isValidInteger(word)){
+                        tokens.add(word);
+                        continue;
+                    }
+      
                 }
+
+                if (psicuda){
+                    tokens.add(";");
+                    psicuda = false; 
+                } 
             }
 
+        }
+        
+        public static boolean isValidInteger(String str) {
+            try {
+                Integer.parseInt(str);
+                return true; // Parsing was successful, so it's a valid integer
+            } catch (NumberFormatException e) {
+                return false; // Parsing failed, so it's not a valid integer
+            }
         }
 
         public static boolean hasMorelines() throws IOException{
@@ -106,8 +148,7 @@ public class JackTokenizer {
 
         }
 
-        public static void advance() throws IOException {
-    
+        public static void advanceline() throws IOException {
             currLine = nextLine;      
             nextLine= reader.readLine();
         }
