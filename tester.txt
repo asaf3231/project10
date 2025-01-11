@@ -1,0 +1,23 @@
+// This is a test file for the JackTokenizer
+class Test {
+    // This is a class-level comment
+    function void main() {
+        var int x; // Variable declaration
+        let x = 5; // Assign 5 to x
+        let x = x + 10;
+ // Increment x by 10
+        
+        do Output.printInt(x); // Print the value of x
+        if (x < 20) { 
+// Check if x is less than 20
+            do Output.printString("x is less than 20");
+ // Print a string
+        } else {
+            do Output.printString("x is 20 or more");
+ // Print another string
+        }
+
+        // Empty line below this comment
+        return; // Return from the function
+    }
+}

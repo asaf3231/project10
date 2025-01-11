@@ -9,14 +9,12 @@ public class JackTokenizer {
     private static BufferedReader reader;
     private static String currLine;
     private static String nextLine;
-    private static String currToken;
+    public static String currToken;
     private static String nextToken;
     private static ArrayList<String> tokens ;
     private static int counter;
 
     private static HashMap<String,String> map ; 
-
-
 
     public JackTokenizer(File file) throws IOException {
         reader = new BufferedReader(new FileReader(file));
@@ -29,16 +27,23 @@ public class JackTokenizer {
         buildMap();
     }
 
+
     public static void cleanFile() throws IOException {
         String[] dividers = {
             "\\{", "\\}", "\\(", "\\)", "\\[", "\\]", "\\.", ",", ";", "\\+", "-", "\\*", "/", "&", "\\|",
-            "<", ">", "=", "~"
+            "<", ">", "=", "~" , "class", "constructor", "function", "method", "field", "static", "var",
+            "char", "boolean", "void", "true", "false", "null", "this", "let",
+            "do", "if", "else", "while", "return"
         };
     
         // Create a regex pattern to include dividers as separate tokens
         String regex = "(?<=(" + String.join("|", dividers) + "))|(?=(" + String.join("|", dividers) + "))";
     
         while (hasMorelines()) {
+            int commentIndex = currLine.indexOf("//");
+            if (commentIndex != -1) {
+                currLine = currLine.substring(0, commentIndex).trim();
+            }
             // Split the current line by the regex
             String[] words = currLine.split(regex);
     
@@ -79,7 +84,6 @@ public class JackTokenizer {
         }
     }
 
-    
     public static boolean isValidInteger(String str) {
         try {
             Integer.parseInt(str);
@@ -90,7 +94,7 @@ public class JackTokenizer {
     }
 
     public static boolean hasMorelines() throws IOException{
-        while(nextLine != null && (nextLine.trim().isEmpty() || nextLine.charAt(0) == '/' )){
+        while(nextLine != null && (nextLine.trim().isEmpty() || nextLine.startsWith("//"))){
             currLine =nextLine.trim();
             nextLine= reader.readLine();
         }    
@@ -98,7 +102,7 @@ public class JackTokenizer {
     }
 
     public static boolean hasMoreTokens() throws IOException{
-        return counter == tokens.size();
+        return counter != tokens.size();
     }
 
     public static void advanceline() throws IOException {
@@ -107,9 +111,18 @@ public class JackTokenizer {
     }
 
     public static void advance() throws IOException {
-        currToken = nextToken;
-        counter++; 
-        nextToken = tokens.get(counter);
+
+        if (counter < tokens.size() - 1) { // Check if there are more tokens
+            currToken = tokens.get(counter);
+            counter++;
+            nextToken = tokens.get(counter);
+        } else if (counter < tokens.size()) { // Handle the last token
+            currToken = tokens.get(counter);
+            nextToken = null; // No next token available
+            counter++;
+        } else {
+            throw new IndexOutOfBoundsException("No more tokens to advance.");
+        }
     }
 
 
@@ -132,28 +145,22 @@ public class JackTokenizer {
     } 
 
     public static String keyWord() throws IOException {
-
-        String res = currToken.toUpperCase();
-        return res; 
+        return  currToken.toUpperCase(); 
     }
 
     public static char symbol() throws IOException {
-
         return currToken.charAt(0);
     }
 
     public static String identifier() throws IOException {
-
         return currToken;
     }
 
     public static int intVal() throws IOException {
-
         return Integer.parseInt(currToken);
     }
 
     public static String stringVal() throws IOException {
-
         return currToken;
     }
 
