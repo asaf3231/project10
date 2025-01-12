@@ -3,7 +3,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class JackTokenizer {
     private static BufferedReader reader;
@@ -13,7 +15,6 @@ public class JackTokenizer {
     private static String nextToken;
     private static ArrayList<String> tokens ;
     private static int counter;
-
     private static HashMap<String,String> map ; 
 
     public JackTokenizer(File file) throws IOException {
@@ -22,39 +23,88 @@ public class JackTokenizer {
         nextLine = reader.readLine();
         tokens =  new ArrayList<>();
         map = new HashMap<>();
-        counter = 0 ;
-        cleanFile();
+        counter = 0;
         buildMap();
+        cleanFile();
     }
-
 
     public static void cleanFile() throws IOException {
         String[] dividers = {
-            "\\{", "\\}", "\\(", "\\)", "\\[", "\\]", "\\.", ",", ";", "\\+", "-", "\\*", "/", "&", "\\|",
-            "<", ">", "=", "~" , "class", "constructor", "function", "method", "field", "static", "var",
+            "{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|",
+            "<", ">", "=", "~", "class", "constructor", "function", "method", "field", "static", "var",
             "char", "boolean", "void", "true", "false", "null", "this", "let",
             "do", "if", "else", "while", "return"
         };
     
-        // Create a regex pattern to include dividers as separate tokens
-        String regex = "(?<=(" + String.join("|", dividers) + "))|(?=(" + String.join("|", dividers) + "))";
+        HashSet<String> dividersSet = new HashSet<>(Arrays.asList(dividers));
     
         while (hasMorelines()) {
+            if (currLine.trim().startsWith("//")) {
+                advanceline(); // Skip comment-only lines
+                continue;
+            }
+            int commentphrase = currLine.indexOf("/*");
+            int endOfCommentPhrase = currLine.indexOf("*/");
+            if (commentphrase != -1) {
+                if(endOfCommentPhrase != -1){
+                    advanceline();
+                }
+                else{
+                    while(endOfCommentPhrase == -1 ){
+                        advanceline(); // Skip comment-only lines
+                        endOfCommentPhrase = currLine.indexOf("*/");
+                    }
+                    advanceline(); // Skip comment-only lines
+                }
+                continue;
+            }
+    
             int commentIndex = currLine.indexOf("//");
             if (commentIndex != -1) {
-                currLine = currLine.substring(0, commentIndex).trim();
+                currLine = currLine.substring(0, commentIndex).trim(); // Remove inline comments
             }
-            // Split the current line by the regex
-            String[] words = currLine.split(regex);
     
-            for (String token : words) {
-                token = token.trim(); // Trim whitespace around tokens
-            
-                if (!token.isEmpty()) { // Skip empty tokens
-                    tokens.add(token); // Add every token directly to the list
+            if (currLine.isEmpty()) {
+                advanceline();
+                continue;
+            }
+    
+            StringBuilder token = new StringBuilder();
+            boolean insideString = false;
+    
+            for (int i = 0; i < currLine.length(); i++) {
+                char c = currLine.charAt(i);
+    
+                if (c == '"') {
+                    insideString = !insideString;
+                    token.append(c);
+                    if (!insideString) {
+                        tokens.add(token.toString());
+                        token.setLength(0);
+                    }
+                } else if (insideString) {
+                    token.append(c);
+                } else if (Character.isWhitespace(c)) {
+                    if (token.length() > 0) {
+                        tokens.add(token.toString());
+                        token.setLength(0);
+                    }
+                } else if (dividersSet.contains(String.valueOf(c))) {
+                    if (token.length() > 0) {
+                        tokens.add(token.toString());
+                        token.setLength(0);
+                    }
+                    tokens.add(String.valueOf(c));
+                } else {
+                    token.append(c);
                 }
             }
-            advanceline(); // Move to the next line
+    
+            if (token.length() > 0) {
+                tokens.add(token.toString());
+            }
+                advanceline(); // Move to the next line
+           
         }
     }
 
@@ -64,7 +114,7 @@ public class JackTokenizer {
         String[] keywords = {
             "class", "constructor", "function", "method", "field", "static", "var",
             "int", "char", "boolean", "void", "true", "false", "null", "this", "let",
-            "do", "if", "else", "while", "return"
+            "do", "if", "else", "while", "return" 
         };
 
         // Symbols
@@ -95,6 +145,9 @@ public class JackTokenizer {
 
     public static boolean hasMorelines() throws IOException{
         while(nextLine != null && (nextLine.trim().isEmpty() || nextLine.startsWith("//"))){
+            if (nextLine.trim().isEmpty() && currLine != null){
+                break;
+            }
             currLine =nextLine.trim();
             nextLine= reader.readLine();
         }    
@@ -111,7 +164,6 @@ public class JackTokenizer {
     }
 
     public static void advance() throws IOException {
-
         if (counter < tokens.size() - 1) { // Check if there are more tokens
             currToken = tokens.get(counter);
             counter++;
@@ -126,23 +178,30 @@ public class JackTokenizer {
     }
 
 
-    public static  String tokenType () throws IOException {
-
-        if (map.containsKey(currToken)){
-            return map.get(currToken);
+    public static String tokenType() throws IOException {
+        // Check if the token is a keyword
+        if (map.containsKey(currToken) && map.get(currToken).equals("KEYWORD")) {
+            return "KEYWORD";
         }
-        if (isValidInteger(currToken)){
+    
+        // Check if the token is a symbol
+        if (currToken.length() == 1 && map.containsKey(currToken) && map.get(currToken).equals("SYMBOL")) {
+            return "SYMBOL";
+        }
+    
+        // Check if the token is an integer constant
+        if (isValidInteger(currToken)) {
             return "INT_CONST";
-        }   
-
-        if( (currToken.charAt(0) == '\"' ) && (currToken.charAt(currToken.length() - 1) == '\"' )){
+        }
+    
+        // Check if the token is a string constant
+        if (currToken.startsWith("\"") && currToken.endsWith("\"")) {
             return "STRING_CONST";
         }
-
-        else{
-            return "IDENTIFIER";
-        }
-    } 
+    
+        // Otherwise, it must be an identifier
+        return "IDENTIFIER";
+    }
 
     public static String keyWord() throws IOException {
         return  currToken.toUpperCase(); 
@@ -163,5 +222,12 @@ public class JackTokenizer {
     public static String stringVal() throws IOException {
         return currToken;
     }
+    public void printAllTokens() {
+        System.out.println("List of Tokens:");
+        for (String token : tokens) {
+            System.out.println(token);
+        }
+    }
+
 
 }
