@@ -6,13 +6,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 public class JackTokenizer {
     private static BufferedReader reader;
-    private static String currLine;
+    public static String currLine;
     private static String nextLine;
     public static String currToken;
-    private static String nextToken;
+    public static String nextToken;
     private static ArrayList<String> tokens ;
     private static int counter;
     private static HashMap<String,String> map ; 
@@ -229,5 +230,10 @@ public class JackTokenizer {
         }
     }
 
-
+    public void printAllSymbol() {
+    System.out.println("List of symbols:");
+    for (Map.Entry<String, String> entry : map.entrySet()) {
+        System.out.println("Key: " + entry.getKey() + ", Value: " + entry.getValue());
+    }
+}
 }

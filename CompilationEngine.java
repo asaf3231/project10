@@ -13,7 +13,8 @@ public class CompilationEngine {
     private static JackTokenizer tokenizer;
     private static String tempString;
     private static int indentLevel ;
-
+    private static String tempType;
+    private static boolean type;
 
 
     public CompilationEngine (File inputFile, File outputFile) throws IOException{
@@ -21,6 +22,9 @@ public class CompilationEngine {
         writer = new BufferedWriter(new FileWriter(outputFile));
         tokenizer = new JackTokenizer(inputFile);
         indentLevel = 0;
+        tempType = "";
+        tempString = "";
+        type = false;
         tokenizer.advance(); // Advance to the first token
         currentToken = tokenizer.currToken; // Initialize currentToke
         compileClass(); // Start compilation       
@@ -35,19 +39,21 @@ public class CompilationEngine {
         process("class");
         process(currentToken);
         process("{");
-        while( currentToken.equals("field") || currentToken.equals("Static") ){
+       
+        while( currentToken.equals("field") || currentToken.equals("static") ){
             compileClassVarDec();
         }
+         
         while (currentToken.equals("constructor") || currentToken.equals("method") || currentToken.equals("function")) { 
             compileSubroutine();
         }
         process("}");
         indentLevel--; // Decrease indentation after closing block
-        writer.write("<class>");
+        writer.write("</class>\n");
     }
 
     public static void compileClassVarDec() throws IOException {
-        writer.write(getIndentation() + "<varDec>\n");
+        writer.write(getIndentation() + "<classVarDec>\n");
         indentLevel++; // Increase indentation for the block
         if (currentToken.equals("static") ){
             process("static");
@@ -71,7 +77,7 @@ public class CompilationEngine {
             process(";");
         }
         indentLevel--; // Decrease indentation after closing block
-        writer.write(getIndentation() + "</varDec>\n");
+        writer.write(getIndentation() + "</classVarDec>\n");
     }
 
 
@@ -121,6 +127,7 @@ public class CompilationEngine {
         indentLevel++; // Increase indentation for the block
 
         if (!currentToken.equals(")")){      
+            process(currentToken);
             process(currentToken);
             while (!currentToken.equals(")")){
                 process(",");
@@ -247,23 +254,31 @@ public class CompilationEngine {
         process("do");
 
         if ( tokenizer.tokenType().equals("IDENTIFIER") ) { 
+
             tempString = currentToken;
             tokenizer.advance();
             currentToken = tokenizer.currToken;
 
             if (currentToken.equals("(")) {
+                type = true;
                 process(tempString);
+                type = false;
                 process("(");
                 compileExpressionList();
                 process(")");
             }   
-            if (currentToken.equals(".")) {
+            else if (currentToken.equals(".")) {
+                type = true;
                 process(tempString);
+                type = false;
                 process(".");
                 compileTerm();
+               
             }
             else{
+                type = true;
                 process(tempString);
+                type = false;
             }
         }
 
@@ -287,22 +302,29 @@ public class CompilationEngine {
     public static void compileExpression() throws IOException {
         writer.write(getIndentation() + "<expression>\n");
         indentLevel++; // Increase indentation for the block
+        writer.write(getIndentation() + "<term>\n");
+        indentLevel++; // Increase indentation for the bloc
         compileTerm();
+        indentLevel--; 
+        writer.write(getIndentation() + "</term>\n");
+        
         while(currentToken.equals("+") || currentToken.equals("-") || currentToken.equals("*") || currentToken.equals("/") || currentToken.equals("&") || currentToken.equals("|") || currentToken.equals("<") ||currentToken.equals(">") || currentToken.equals("=")){
             process(currentToken);
+            writer.write(getIndentation() + "<term>\n");
+            indentLevel++; // Increase indentation for the bloc
             compileTerm();
+            indentLevel--; 
+            writer.write(getIndentation() + "</term>\n");
+           
         }
         indentLevel--; // Decrease indentation after closing block
         writer.write(getIndentation() + "</expression>\n");
     }
     
     public static void compileTerm() throws IOException {
-        writer.write(getIndentation() + "<term>\n");
-        indentLevel++; // Increase indentation for the block
+       
         if ( tokenizer.tokenType().equals("INT_CONST") ) {
-            indentLevel++; // Increase indentation for the block
             process(currentToken);
-            indentLevel--; // Decrease indentation after closing block
         }
 
         if ( tokenizer.tokenType().equals("STRING_CONST") ) {
@@ -313,59 +335,80 @@ public class CompilationEngine {
             process(currentToken);
         }
         if ( tokenizer.tokenType().equals("SYMBOL") ){
+
             if( currentToken.equals("(")){
                 process("(");
                 compileExpression();
                 process(")");
             }
-            if(currentToken.equals("~") || currentToken.equals("-")) {
+            else if(currentToken.equals("~") || currentToken.equals("-")) {
                 process(currentToken);
+                writer.write(getIndentation() + "<term>\n");
+                indentLevel++; // Increase indentation for the bloc
                 compileTerm();
+                indentLevel--; 
+                writer.write(getIndentation() + "</term>\n");
             }
         }
 
         if ( tokenizer.tokenType().equals("IDENTIFIER") ) { 
             tempString = currentToken;
+            tempType = tokenizer.tokenType();
             tokenizer.advance();
             currentToken = tokenizer.currToken;
 
             if (currentToken.equals("(")) {
+                type = true;
                 process(tempString);
+                type = false;
                 process("(");
                 compileExpressionList();
                 process(")");
             }
-            if (currentToken.equals("[")) {
+            else if (currentToken.equals("[")) {
+                type = true;
                 process(tempString);
+                type = false;
                 process("[");
                 compileExpression(); 
                 process("]");
             }
-            if (currentToken.equals(".")) {
+            else if (currentToken.equals(".")) {
+                type = true;
                 process(tempString);
+                type = false;
                 process(".");
                 compileTerm();
             }
             else{
+                type = true;
                 process(tempString);
+                type = false;
             }
         }
-        indentLevel--; // Decrease indentation after closing block
-        writer.write(getIndentation() + "</term>\n");
+        
     }
 
     public static void compileExpressionList() throws IOException {
         writer.write(getIndentation() + "<expressionList>\n");
         indentLevel ++ ;
-        compileExpression();
-        while (!currentToken.equals(")")){
-            if(currentToken.equals(",")){
+        if (!currentToken.equals(")")) {
+            compileExpression();
+        }
+       
+        while (!currentToken.equals(";")) {
+            // Break the loop if the current token is ")" and the next token is ";"
+            if (currentToken.equals(")") && tokenizer.nextToken.equals(";")) {
+                break;
+            }
+    
+            if (currentToken.equals(",")) {
                 process(",");
                 compileExpression();
             }
-        } 
+        }
         indentLevel --;
-        writer.write(getIndentation() + "<expressionList>\n");
+        writer.write(getIndentation() + "</expressionList>\n");
     }
 
     public static void process(String str) throws IOException {
@@ -385,7 +428,11 @@ public class CompilationEngine {
     }
 
     public static void printXMLToken(String str) throws IOException {
-        switch (tokenizer.tokenType()) {
+        String condition = tokenizer.tokenType();
+        if (type){
+            condition = tempType;
+        }
+        switch (condition) {
 
             case "KEYWORD":
                 writer.write( getIndentation() + "<keyword> " + str + " </keyword>\n");
@@ -423,4 +470,5 @@ public class CompilationEngine {
         return "  ".repeat(indentLevel); 
     }
 
+    
 }

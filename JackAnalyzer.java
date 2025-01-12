@@ -5,12 +5,6 @@ import java.io.IOException;
 public class JackAnalyzer {
 
     public static void main(String[] args) throws IOException {
-        File file= new File(args[0]);
-        JackTokenizer jk = new JackTokenizer(file);
-
-        while (jk.hasMoreTokens()){
-            jk.advance();
-            System.out.println(jk.currToken);
+            CompilationEngine ce = new CompilationEngine(new File(args[0]), new File(args[1]));
         }
-    }
 }
